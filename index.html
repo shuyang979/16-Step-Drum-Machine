@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>16-Step Drum Machine</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            color: #333333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .drum-machine {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333333;
+            margin-bottom: 20px;
+        }
+        .grid-container {
+            display: flex;
+        }
+        .labels {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            margin-right: 10px;
+            font-weight: bold;
+            color: #666666;
+        }
+        .grid-wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+        .beat-numbers {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+        .beat-number {
+            text-align: center;
+            font-size: 12px;
+            color: #888888;
+            width: 30px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(16, 1fr);
+            gap: 5px;
+        }
+        .cell {
+            width: 30px;
+            height: 30px;
+            background-color: #e0e0e0;
+            border: 1px solid #cccccc;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .cell.active {
+            background-color: #999999;
+        }
+        .cell.playing {
+            box-shadow: 0 0 10px #666666;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+        button {
+            background-color: #d0d0d0;
+            color: #333333;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #bbbbbb;
+        }
+        input[type="range"] {
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="drum-machine">
+        <h1>16-Step Drum Machine</h1>
+        <div class="grid-container">
+            <div class="labels">
+                <div>Hi-Hat</div>
+                <div>Snare</div>
+                <div>Kick</div>
+            </div>
+            <div class="grid-wrapper">
+                <div class="beat-numbers">
+                    <div class="beat-number">1</div>
+                    <div class="beat-number">2</div>
+                    <div class="beat-number">3</div>
+                    <div class="beat-number">4</div>
+                    <div class="beat-number">5</div>
+                    <div class="beat-number">6</div>
+                    <div class="beat-number">7</div>
+                    <div class="beat-number">8</div>
+                    <div class="beat-number">9</div>
+                    <div class="beat-number">10</div>
+                    <div class="beat-number">11</div>
+                    <div class="beat-number">12</div>
+                    <div class="beat-number">13</div>
+                    <div class="beat-number">14</div>
+                    <div class="beat-number">15</div>
+                    <div class="beat-number">16</div>
+                </div>
+                <div class="grid" id="grid"></div>
+            </div>
+        </div>
+        <div class="controls">
+            <button id="playButton">Play</button>
+            <button id="stopButton">Stop</button>
+            <input type="range" id="tempoSlider" min="60" max="180" value="140">
+            <span id="tempoValue">140 BPM</span>
+        </div>
+    </div>
+    <script>
+        // JavaScript code remains the same as in the previous version
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const grid = document.getElementById('grid');
+        const playButton = document.getElementById('playButton');
+        const stopButton = document.getElementById('stopButton');
+        const tempoSlider = document.getElementById('tempoSlider');
+        const tempoValue = document.getElementById('tempoValue');
+
+        const drumSounds = ['hihat', 'snare', 'kick'];
+        const pattern = [
+            [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0], // Hi-Hat
+            [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0], // Snare
+            [1,0,0,1,0,0,0,1,0,0,1,0,0,0,0,1]  // Kick
+        ];
+        let isPlaying = false;
+        let currentBeat = 0;
+        let tempo = 140;
+
+        function createNoiseBuffer() {
+            const bufferSize = audioContext.sampleRate * 2;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+            return buffer;
+        }
+
+        const noiseBuffer = createNoiseBuffer();
+
+        function createDrumSound(type) {
+            const gainNode = audioContext.createGain();
+            gainNode.connect(audioContext.destination);
+
+            switch (type) {
+                case 'hihat':
+                    const hihatSource = audioContext.createBufferSource();
+                    hihatSource.buffer = noiseBuffer;
+
+                    const hihatFilter = audioContext.createBiquadFilter();
+                    hihatFilter.type = 'highpass';
+                    hihatFilter.frequency.value = 7000;
+
+                    hihatSource.connect(hihatFilter);
+                    hihatFilter.connect(gainNode);
+
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+                    hihatSource.start();
+                    hihatSource.stop(audioContext.currentTime + 0.1);
+                    break;
+
+                case 'snare':
+                    const snareNoise = audioContext.createBufferSource();
+                    snareNoise.buffer = noiseBuffer;
+
+                    const snareFilter = audioContext.createBiquadFilter();
+                    snareFilter.type = 'highpass';
+                    snareFilter.frequency.value = 1000;
+
+                    const snareEnvelope = audioContext.createGain();
+                    snareEnvelope.gain.setValueAtTime(1, audioContext.currentTime);
+                    snareEnvelope.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+
+                    const snareOscillator = audioContext.createOscillator();
+                    snareOscillator.type = 'triangle';
+                    snareOscillator.frequency.value = 100;
+
+                    snareNoise.connect(snareFilter);
+                    snareFilter.connect(snareEnvelope);
+                    snareOscillator.connect(snareEnvelope);
+                    snareEnvelope.connect(gainNode);
+
+                    gainNode.gain.setValueAtTime(0.7, audioContext.currentTime);
+
+                    snareNoise.start();
+                    snareOscillator.start();
+                    snareNoise.stop(audioContext.currentTime + 0.2);
+                    snareOscillator.stop(audioContext.currentTime + 0.2);
+                    break;
+
+                case 'kick':
+                    const kickOscillator = audioContext.createOscillator();
+                    kickOscillator.type = 'sine';
+
+                    const kickEnvelope = audioContext.createGain();
+                    kickEnvelope.gain.setValueAtTime(1, audioContext.currentTime);
+                    kickEnvelope.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+
+                    kickOscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+                    kickOscillator.frequency.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+
+                    kickOscillator.connect(kickEnvelope);
+                    kickEnvelope.connect(gainNode);
+
+                    gainNode.gain.setValueAtTime(1, audioContext.currentTime);
+
+                    kickOscillator.start();
+                    kickOscillator.stop(audioContext.currentTime + 0.5);
+                    break;
+            }
+        }
+
+        function createGrid() {
+            drumSounds.forEach((sound, row) => {
+                for (let col = 0; col < 16; col++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    if (pattern[row][col]) {
+                        cell.classList.add('active');
+                    }
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    cell.addEventListener('click', toggleCell);
+                    grid.appendChild(cell);
+                }
+            });
+        }
+
+        function toggleCell(event) {
+            const row = event.target.dataset.row;
+            const col = event.target.dataset.col;
+            pattern[row][col] = !pattern[row][col];
+            event.target.classList.toggle('active');
+        }
+
+        function play() {
+            if (!isPlaying) {
+                isPlaying = true;
+                currentBeat = 0;
+                playBeat();
+            }
+        }
+
+        function stop() {
+            isPlaying = false;
+            currentBeat = 0;
+            updatePlayingIndicator();
+        }
+
+        function playBeat() {
+            if (!isPlaying) return;
+
+            updatePlayingIndicator();
+
+            drumSounds.forEach((sound, row) => {
+                if (pattern[row][currentBeat]) {
+                    createDrumSound(sound);
+                }
+            });
+
+            currentBeat = (currentBeat + 1) % 16;
+
+            setTimeout(playBeat, (30 / tempo) * 1000); // 2x faster
+        }
+
+        function updatePlayingIndicator() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => cell.classList.remove('playing'));
+
+            if (isPlaying) {
+                drumSounds.forEach((_, row) => {
+                    const playingCell = document.querySelector(`.cell[data-row="${row}"][data-col="${currentBeat}"]`);
+                    playingCell.classList.add('playing');
+                });
+            }
+        }
+
+        function updateTempo() {
+            tempo = tempoSlider.value;
+            tempoValue.textContent = `${tempo} BPM`;
+        }
+
+        createGrid();
+        playButton.addEventListener('click', play);
+        stopButton.addEventListener('click', stop);
+        tempoSlider.addEventListener('input', updateTempo);
+        updateTempo(); // Set initial tempo display
+    </script>
+</body>
+</html>
